@@ -44,7 +44,7 @@
   .workspace{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
   .workspace-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fff,#fbfcfe)}
   .workspace-head .left{display:flex;align-items:center;gap:10px;min-width:0}.workspace-title{font-size:14px;font-weight:800}.workspace-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:700px}
-  .table-wrap{overflow:auto;max-height:calc(100vh - 260px)}
+  .table-wrap{overflow:auto;max-height:calc(100vh - 260px);overflow-anchor:none}
   table{width:100%;border-collapse:separate;border-spacing:0;min-width:1240px}
   thead th{position:sticky;top:0;z-index:15;background:#f8fafc;color:#586579;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.055em;font-weight:800;padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
   tbody td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:middle;font-size:12.5px;background:#fff}
@@ -388,7 +388,63 @@ function filteredCases(){
   });
 }
 
-function render(){renderHeader();renderStats();renderTable();syncSettingsUI();}
+function captureViewportState(){
+  const wrap=document.querySelector('.table-wrap');
+  if(!wrap)return {pageX:window.scrollX,pageY:window.scrollY,hasWrap:false};
+  const wr=wrap.getBoundingClientRect();
+  const rows=[...wrap.querySelectorAll('tr.case-row[data-case]')];
+  let activeCase=null,activeOffset=null;
+  const active=document.activeElement;
+  if(active&&active!==document.body){
+    let row=active.closest?.('tr.case-row[data-case]');
+    if(!row){
+      const detail=active.closest?.('tr.detail-row');
+      if(detail&&detail.previousElementSibling?.matches?.('tr.case-row[data-case]'))row=detail.previousElementSibling;
+    }
+    if(row){activeCase=row.dataset.case;activeOffset=row.getBoundingClientRect().top-wr.top;}
+  }
+  let visibleRow=rows.find(r=>r.getBoundingClientRect().bottom>wr.top+1&&r.getBoundingClientRect().top<wr.bottom-1)||null;
+  return {
+    pageX:window.scrollX,pageY:window.scrollY,hasWrap:true,
+    scrollTop:wrap.scrollTop,scrollLeft:wrap.scrollLeft,
+    activeCase,activeOffset,
+    visibleCase:visibleRow?.dataset.case||null,
+    visibleOffset:visibleRow?visibleRow.getBoundingClientRect().top-wr.top:null
+  };
+}
+function restoreViewportState(v){
+  if(!v)return;
+  window.scrollTo({left:v.pageX||0,top:v.pageY||0,behavior:'auto'});
+  if(!v.hasWrap)return;
+  const wrap=document.querySelector('.table-wrap');
+  if(!wrap)return;
+  wrap.scrollLeft=v.scrollLeft||0;
+  wrap.scrollTop=v.scrollTop||0;
+  requestAnimationFrame(()=>{
+    window.scrollTo({left:v.pageX||0,top:v.pageY||0,behavior:'auto'});
+    const w=document.querySelector('.table-wrap');
+    if(!w)return;
+    w.scrollLeft=v.scrollLeft||0;
+    w.scrollTop=v.scrollTop||0;
+    const anchorCase=(v.activeCase&&document.querySelector(`tr.case-row[data-case="${v.activeCase}"]`))?v.activeCase:v.visibleCase;
+    const targetOffset=anchorCase===v.activeCase?v.activeOffset:v.visibleOffset;
+    if(anchorCase&&targetOffset!==null&&targetOffset!==undefined){
+      const row=document.querySelector(`tr.case-row[data-case="${anchorCase}"]`);
+      if(row){
+        const wr=w.getBoundingClientRect();
+        const rr=row.getBoundingClientRect();
+        w.scrollTop += (rr.top-wr.top)-targetOffset;
+      }
+    }
+    requestAnimationFrame(()=>window.scrollTo({left:v.pageX||0,top:v.pageY||0,behavior:'auto'}));
+  });
+}
+function render(){
+  const viewport=captureViewportState();
+  try{document.activeElement?.blur?.();}catch(e){}
+  renderHeader();renderStats();renderTable();syncSettingsUI();
+  restoreViewportState(viewport);
+}
 function renderHeader(){
   updateSaveIndicator();
   const s=state.source,active=allCases().filter(c=>!isResolved(c)).length,resolved=allCases().filter(isResolved).length,old=directoryIsOld();
