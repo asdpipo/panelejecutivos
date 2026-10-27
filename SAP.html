@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generador de Pagos SAP</title>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="eds-data.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --text: #18202a;
+      --muted: #687386;
+      --line: #dfe5ec;
+      --brand: #d71920;
+      --brand-dark: #a50e14;
+      --ok: #16794f;
+      --warn: #a15c00;
+      --danger: #b42318;
+      --shadow: 0 12px 35px rgba(19, 33, 55, 0.08);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(215,25,32,.06), transparent 24rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    .app-shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 28px auto 48px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 18px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #fff0f1;
+      color: var(--brand-dark);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 9px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.08;
+      letter-spacing: -.035em;
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      color: var(--muted);
+      max-width: 760px;
+      font-size: 15px;
+    }
+
+    .local-badge {
+      flex: 0 0 auto;
+      display: flex;
+      gap: 9px;
+      align-items: center;
+      margin-top: 8px;
+      padding: 10px 13px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      box-shadow: 0 4px 18px rgba(19,33,55,.05);
+    }
+
+    .local-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 0 4px rgba(22,121,79,.11);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .form-card {
+      padding: 24px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -.015em;
+    }
+
+    .section-title p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .case-section-title {
+      margin-bottom: 18px;
+    }
+
+    .required-note {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
+
+    .field {
+      grid-column: span 4;
+      min-width: 0;
+    }
+
+    .field.wide { grid-column: span 6; }
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 7px;
+      color: #374151;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .counter {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .req { color: var(--brand); }
+
+    input, select, textarea {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid #cfd7e3;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+
+    textarea {
+      min-height: 78px;
+      resize: vertical;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: #77869a;
+      box-shadow: 0 0 0 3px rgba(51,65,85,.10);
+    }
+
+    input.invalid, select.invalid, textarea.invalid {
+      border-color: var(--danger);
+      background: #fff8f7;
+      box-shadow: 0 0 0 3px rgba(180,35,24,.08);
+    }
+
+    .helper {
+      display: block;
+      min-height: 17px;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 11.5px;
+    }
+
+    .error {
+      color: var(--danger);
+      font-weight: 650;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding: 4px;
+      min-height: 44px;
+      background: #eef2f6;
+      border-radius: 10px;
+    }
+
+    .segmented input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .segmented label {
+      margin: 0;
+      justify-content: center;
+      border-radius: 7px;
+      cursor: pointer;
+      min-height: 36px;
+      padding: 8px 10px;
+      color: #586476;
+      font-size: 12px;
+      font-weight: 800;
+      user-select: none;
+    }
+
+    .segmented input:checked + label {
+      background: #fff;
+      color: var(--text);
+      box-shadow: 0 1px 5px rgba(19,33,55,.12);
+    }
+
+    .smart-paste {
+      grid-column: span 6;
+      align-self: start;
+      border: 1px solid #d9e0e9;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fbfcfe, #f7f9fc);
+      padding: 14px;
+    }
+
+    .smart-paste-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 9px;
+    }
+
+    .smart-paste-title {
+      margin: 0;
+      color: #374151;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .smart-paste-copy {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 11.5px;
+    }
+
+    .smart-paste textarea {
+      min-height: 82px;
+      font-size: 12.5px;
+      background: #fff;
+    }
+
+    .detect-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 9px;
+    }
+
+    .btn-small {
+      min-height: 36px;
+      border-radius: 9px;
+      padding: 7px 12px;
+      border: 1px solid #cfd7e3;
+      background: #fff;
+      color: #344054;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .btn-small:hover { background: #f8fafc; }
+
+    .detect-result {
+      display: none;
+      margin-top: 11px;
+      padding-top: 11px;
+      border-top: 1px solid var(--line);
+    }
+
+    .detect-result.show { display: block; }
+
+    .detected-grid {
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      gap: 6px 10px;
+      font-size: 11.5px;
+      margin-bottom: 11px;
+    }
+
+    .detected-label {
+      color: var(--muted);
+      font-weight: 750;
+    }
+
+    .detected-value {
+      color: #273142;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .detected-value.missing {
+      color: var(--warn);
+      font-weight: 700;
+    }
+
+    .detect-message {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 11.5px;
+    }
+
+    .confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .btn-use {
+      border-color: #273142;
+      background: #273142;
+      color: #fff;
+    }
+
+    .btn-use:hover { background: #111827; }
+
+    .divider {
+      border: 0;
+      border-top: 1px solid var(--line);
+      margin: 24px 0;
+    }
+
+    .preview-card {
+      margin-top: 18px;
+      overflow: hidden;
+    }
+
+    .preview-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fff, #fbfcfe);
+    }
+
+    .preview-head h2 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .preview-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status-pill {
+      flex: 0 0 auto;
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 850;
+      background: #f2f4f7;
+      color: #667085;
+      border: 1px solid #eaecf0;
+    }
+
+    .status-pill.ok {
+      color: var(--ok);
+      background: #effaf5;
+      border-color: #caeadc;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      padding: 0 0 3px;
+    }
+
+    table {
+      border-collapse: collapse;
+      min-width: 1760px;
+      width: 100%;
+      font-size: 12px;
+    }
+
+    th, td {
+      border-right: 1px solid #e3e8ef;
+      border-bottom: 1px solid #e3e8ef;
+      padding: 10px 11px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f7f9fc;
+      color: #364152;
+      font-weight: 800;
+    }
+
+    td {
+      min-height: 40px;
+      color: #1f2937;
+    }
+
+    td.empty { color: #a3acb9; }
+
+    .letter-row th {
+      padding: 4px 11px;
+      background: #eef2f6;
+      color: #7b8798;
+      font-size: 10px;
+      text-align: center;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 20px 20px;
+    }
+
+    .action-copy {
+      color: var(--muted);
+      font-size: 12px;
+      max-width: 610px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 16px;
+      min-height: 44px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 850;
+      cursor: pointer;
+      transition: transform .1s ease, box-shadow .15s ease, background .15s ease;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    .btn-secondary {
+      background: #eef2f6;
+      color: #364152;
+    }
+
+    .btn-primary {
+      background: var(--brand);
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(215,25,32,.20);
+    }
+
+    .btn-primary:hover { background: var(--brand-dark); }
+
+    .notice {
+      display: none;
+      margin: 0 20px 18px;
+      border-radius: 10px;
+      padding: 11px 13px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .notice.show { display: block; }
+    .notice.error {
+      color: #8b1e15;
+      border: 1px solid #f1c7c2;
+      background: #fff4f2;
+    }
+
+    .notice.success {
+      color: #10603f;
+      border: 1px solid #c5e6d8;
+      background: #f0faf5;
+    }
+
+    .footer-note {
+      margin-top: 13px;
+      text-align: center;
+      color: #8792a2;
+      font-size: 11px;
+    }
+
+    @media (max-width: 820px) {
+      .app-shell { width: min(100% - 20px, 1180px); margin-top: 16px; }
+      .topbar { flex-direction: column; }
+      .local-badge { margin-top: 0; }
+      .form-card { padding: 18px; }
+      .field, .field.wide { grid-column: span 6; }
+      .actions { align-items: stretch; flex-direction: column; }
+      .buttons { justify-content: stretch; }
+      .buttons button { flex: 1; }
+    }
+
+    @media (max-width: 560px) {
+      .field, .field.wide, .smart-paste { grid-column: 1 / -1; }
+      .section-title { align-items: flex-start; flex-direction: column; }
+      .required-note { white-space: normal; }
+      .buttons { flex-direction: column; }
+    }
+
+    .deudor-stack {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) 220px;
+      gap: 10px;
+      align-items: start;
+    }
+    .eds-lookup {
+      border: 1px solid #d9e0e9;
+      border-radius: 10px;
+      background: #f8fafc;
+      padding: 9px 10px;
+    }
+    .eds-lookup label {
+      margin: 0 0 5px;
+      color: #5f6b7c;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .eds-lookup-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+    }
+    .eds-lookup-row input {
+      min-height: 36px;
+      padding: 7px 9px;
+      font-size: 12px;
+    }
+    .eds-lookup-row button {
+      min-height: 36px;
+      padding: 7px 10px;
+      border: 1px solid #cfd7e3;
+      background: #fff;
+      color: #344054;
+      font-size: 11px;
+      box-shadow: none;
+    }
+    .eds-lookup-status {
+      min-height: 15px;
+      margin-top: 5px;
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+    .eds-lookup-status.ok { color: var(--ok); font-weight: 750; }
+    .eds-lookup-status.error { color: var(--danger); font-weight: 750; }
+    .portal-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 38px;
+      padding: 8px 11px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #344054;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .portal-link:hover { background: #f8fafc; }
+    @media (max-width: 760px) {
+      .deudor-stack { grid-template-columns: 1fr; }
+    }
+
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">Pagos · SAP · V3</div>
+        <h1>Generador de documento de pago</h1>
+        <p class="subtitle">
+          Completa los datos del caso. El portal valida, normaliza y arma el Excel con la estructura requerida para carga en SAP.
+        </p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+        <a class="portal-link" href="index.html">← Panel</a>
+        <a class="portal-link" href="EDS.html">⌕ Buscar EDS</a>
+        <div class="local-badge" title="El formulario no envía los datos a un servidor">
+          <span class="local-dot"></span>
+          Procesamiento local en el navegador
+        </div>
+      </div>
+    </header>
+
+    <section class="card form-card">
+      <div class="section-title">
+        <div>
+          <h2>Datos del cliente</h2>
+          <p>Información bancaria y de identificación del destinatario del pago.</p>
+        </div>
+        <span class="required-note"><span class="req">*</span> Campos obligatorios</span>
+      </div>
+
+      <div class="grid">
+        <div class="field wide">
+          <label for="nombre">
+            <span>Nombre cliente <span class="req">*</span></span>
+            <span class="counter"><span id="count-nombre">0</span>/32</span>
+          </label>
+          <input id="nombre" type="text" maxlength="32" autocomplete="off" placeholder="Nombre del cliente" data-required="true" />
+          <span class="helper" id="err-nombre">Tildes y ñ se corrigen automáticamente.</span>
+        </div>
+
+        <div class="field">
+          <label for="rut">RUT <span class="req">*</span></label>
+          <input id="rut" type="text" maxlength="14" autocomplete="off" placeholder="12.345.678-K" data-required="true" />
+          <span class="helper" id="err-rut">Se valida el dígito verificador; K/k admitida.</span>
+        </div>
+
+        <div class="field wide">
+          <label for="banco">Banco <span class="req">*</span></label>
+          <input id="banco" type="text" list="bankList" autocomplete="off" placeholder="Escribe banco o código..." data-required="true" />
+          <datalist id="bankList"></datalist>
+          <span class="helper" id="err-banco">Puedes filtrar escribiendo el nombre. SAP recibe solo el código.</span>
+        </div>
+
+        <div class="field">
+          <label for="cuentaVista">Número de cuenta <span class="req">*</span></label>
+          <input id="cuentaVista" type="text" inputmode="numeric" autocomplete="off" placeholder="0001234567" data-required="true" />
+          <span class="helper" id="err-cuentaVista">Se eliminan espacios, puntos, guiones y ceros a la izquierda.</span>
+        </div>
+
+        <div class="field wide">
+          <label for="correo">
+            <span>Correo <span class="req">*</span></span>
+            <span class="counter"><span id="count-correo">0</span>/32</span>
+          </label>
+          <input id="correo" type="email" maxlength="32" autocomplete="off" placeholder="nombre@correo.cl" data-required="true" />
+          <span class="helper" id="err-correo">Máximo 32 caracteres.</span>
+        </div>
+
+        <aside class="smart-paste" aria-labelledby="smartPasteTitle">
+          <div class="smart-paste-head">
+            <div>
+              <h3 class="smart-paste-title" id="smartPasteTitle">Pegar datos del cliente</h3>
+              <p class="smart-paste-copy">Pega un bloque con nombre, RUT, banco, cuenta y correo. Revisarás lo detectado antes de completar.</p>
+            </div>
+          </div>
+          <textarea id="clientPaste" placeholder="Ej.: Nombre: Ana Perez · RUT: 12.345.678-K · Banco: Santander · Cuenta: 0012345678 · ana@correo.cl"></textarea>
+          <div class="detect-actions">
+            <button class="btn-small" type="button" id="detectClientBtn">Detectar datos</button>
+          </div>
+          <div class="detect-result" id="detectResult" aria-live="polite">
+            <p class="detect-message" id="detectMessage"></p>
+            <div class="detected-grid" id="detectedGrid"></div>
+            <div class="confirm-actions">
+              <button class="btn-small" type="button" id="cancelDetectedBtn">Cancelar</button>
+              <button class="btn-small btn-use" type="button" id="applyDetectedBtn">Usar estos datos</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="section-title case-section-title">
+        <div>
+          <h2>Datos del caso</h2>
+          <p>Origen del pago, fechas, monto y referencias asociadas al caso.</p>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="field wide">
+          <label for="concepto">Código concepto <span class="req">*</span></label>
+          <select id="concepto" data-required="true"></select>
+          <span class="helper" id="err-concepto">En Excel se guardará solo el código IXXX.</span>
+        </div>
+
+        <div class="field">
+          <label for="caso">N° caso <span class="req">*</span></label>
+          <input id="caso" type="text" maxlength="8" inputmode="numeric" autocomplete="off" placeholder="0XXXXXXX" data-required="true" />
+          <span class="helper" id="err-caso">Exactamente 8 números.</span>
+        </div>
+
+        <div class="field">
+          <label for="fechaCaso">Fecha del caso <span class="req">*</span></label>
+          <input id="fechaCaso" type="date" data-required="true" />
+          <span class="helper" id="err-fechaCaso">Se exportará como DDMMAAAA.</span>
+        </div>
+
+        <div class="field">
+          <label for="fechaDevolucion">Fecha devolución <span class="req">*</span></label>
+          <input id="fechaDevolucion" type="date" data-required="true" />
+          <span class="helper" id="err-fechaDevolucion">Se exportará como DDMMAAAA.</span>
+        </div>
+
+        <div class="field">
+          <label for="monto">Monto <span class="req">*</span></label>
+          <input id="monto" type="text" inputmode="numeric" autocomplete="off" placeholder="$ 100.000" data-required="true" />
+          <span class="helper" id="err-monto">Se exporta sin puntos ni simbolos: 100000.</span>
+        </div>
+
+        <div class="field wide">
+          <label for="ref2">
+            <span>REF2 - EDS</span>
+            <span class="counter"><span id="count-ref2">0</span>/32</span>
+          </label>
+          <input id="ref2" type="text" maxlength="32" autocomplete="off" placeholder="EDSXXXXX (opcional)" />
+          <span class="helper" id="err-ref2">Opcional. Máximo 32 caracteres.</span>
+        </div>
+
+        <div class="field wide">
+          <label for="ref3">REF3 - DEUDOR</label>
+          <div class="deudor-stack">
+            <div>
+              <input id="ref3" type="text" autocomplete="off" placeholder="Opcional" />
+              <span class="helper" id="err-ref3">Puede quedar en blanco.</span>
+            </div>
+            <div class="eds-lookup">
+              <label for="deudorEds">Buscar deudor por EDS</label>
+              <div class="eds-lookup-row">
+                <input id="deudorEds" type="text" inputmode="numeric" autocomplete="off" placeholder="Ej. 60823" />
+                <button type="button" id="lookupDeudorBtn">Buscar</button>
+              </div>
+              <div class="eds-lookup-status" id="deudorLookupStatus">Acepta 60823 o 0000060823.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field wide">
+          <label for="texto">
+            <span>Texto / descripción <span class="req">*</span></span>
+            <span class="counter"><span id="count-texto">0</span>/32</span>
+          </label>
+          <input id="texto" type="text" maxlength="32" autocomplete="off" placeholder="Ordenanza pago" data-required="true" />
+          <span class="helper" id="err-texto">Máximo 32 caracteres.</span>
+        </div>
+
+        <div class="field wide">
+          <label for="proceso">Proceso / recobro</label>
+          <select id="proceso"></select>
+          <span class="helper" id="err-proceso">Opcional. Sólo I003 o I013.</span>
+        </div>
+
+        <div class="field wide">
+          <label for="asignacion">Asignación</label>
+          <input id="asignacion" type="text" autocomplete="off" placeholder="Opcional" />
+          <span class="helper" id="err-asignacion">Puede quedar en blanco.</span>
+        </div>
+
+        <div class="field">
+          <label>Marca</label>
+          <div class="segmented" role="radiogroup" aria-label="Marca">
+            <input type="radio" id="marcaNo" name="marca" value="NO" checked />
+            <label for="marcaNo">NO</label>
+            <input type="radio" id="marcaSi" name="marca" value="SI" />
+            <label for="marcaSi">SÍ</label>
+          </div>
+          <span class="helper">Si seleccionas SÍ, SAP recibe <b>X</b>.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card preview-card">
+      <div class="preview-head">
+        <div>
+          <h2>Vista previa SAP</h2>
+          <p>Así quedará la fila 2 después de aplicar las reglas de normalización.</p>
+        </div>
+        <span id="statusPill" class="status-pill">Formulario incompleto</span>
+      </div>
+
+      <div class="table-wrap">
+        <table aria-label="Vista previa de la fila SAP">
+          <thead>
+            <tr class="letter-row" id="letterRow"></tr>
+            <tr id="headerRow"></tr>
+          </thead>
+          <tbody>
+            <tr id="previewRow"></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="actions">
+        <div class="action-copy">
+          El Excel se crea desde una plantilla limpia basada en tus archivos de ejemplo. La fila 1 se conserva y solo se completa la fila 2.
+        </div>
+        <div class="buttons">
+          <button class="btn-secondary" type="button" id="clearBtn">Limpiar</button>
+          <button class="btn-primary" type="button" id="generateBtn">Generar Excel SAP</button>
+        </div>
+      </div>
+
+      <div id="notice" class="notice" role="status" aria-live="polite"></div>
+    </section>
+
+    <div class="footer-note">Prototipo V3 · Un pago por archivo</div>
+  </main>
+
+<script>
+(() => {
+  'use strict';
+
+  const TEMPLATE_B64 = "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";
+
+  const concepts = [
+    ["I001","Tienda Virtual"],
+    ["I004","Medios de pago Copec"],
+    ["I005","Promociones EDS"],
+    ["I006","Siniestros Soporte"],
+    ["I008","Propinas ventas mal cobradas"],
+    ["I009","Cliente Pronto"],
+    ["I010","Cliente Punto"],
+    ["I011","Carga Bip"],
+    ["I012","Recobro Parking"],
+    ["I014","Compensaciones Copec Pay"],
+    ["I015","Recobro Voltex"],
+    ["I017","Recobro Blue Express App Copec"],
+    ["I021","Devolución Chiletur"],
+    ["I022","Regularizacion reversa automatica Zervo"],
+    ["I023","Recobro Saba / Marina Arauco"],
+    ["I024","Gasto Saba / Marina Arauco"],
+    ["I025","Canje experiencia"],
+    ["I026","Gasto Republic Parking"],
+    ["I027","Recobro Republic Parking"],
+    ["I028","Devolución Juan Valdez"],
+    ["I029","Reversa por preautorización Voltex"],
+    ["I030","Gasto Mallplaza Saba"],
+    ["I031","Recobro Mallplaza Saba"],
+    ["I032","Gasto Mallplaza RepublicParking"],
+    ["I033","Recobro Mallplaza RepublicParking"],
+    ["I036","Devolución BPE"]
+  ];
+
+  const banks = [
+    ["001","Banco de Chile"],
+    ["009","Banco Internacional"],
+    ["012","Banco del Estado de Chile"],
+    ["014","Scotiabank Sud Americano"],
+    ["016","Banco de créditos e inversiones"],
+    ["017","Branco do Brasil"],
+    ["027","Corpbanca"],
+    ["028","Banco Bice"],
+    ["001","Banco Edwards"],
+    ["031","HSBC Bank (Chile)"],
+    ["001","CITIBANK"],
+    ["037","Banco Santander Santiago"],
+    ["039","Banco ITAU"],
+    ["041","Jp Morgan Chase Bank, N.A."],
+    ["043","Banco de la Nación Argentina"],
+    ["045","Tokyo Mitsubishi"],
+    ["046","ABN AMRO Bank"],
+    ["049","Banco Security"],
+    ["051","Banco Falabella"],
+    ["052","Deutsche Bank (Chile)"],
+    ["053","Banco Ripley"],
+    ["054","Rabobank"],
+    ["055","Banco Consorcio"],
+    ["056","Banco Penta"],
+    ["057","Banco Paris"],
+    ["504","Banco BBVA"],
+    ["507","Banco del Desarrollo"],
+    ["672","Coopeuch"],
+    ["116","Mach"],
+    ["741","Copec Pay"],
+    ["730","Tenpo"],
+    ["732","Tapp Caja los Andes"],
+    ["875","Mercadopago S.A."]
+  ];
+
+  const headers = [
+    "Codigo Concepto","N°CASO","FECHA DEL CASO","FECHA DEVOLUCION","Tratamiento",
+    "R.U.T.","RAZON SOCIAL O NOMBRE","Poblacion","BANCO","CUENTA VISTA",
+    "CORREO ELECTRONICO","REF2 - EDS","REF3 - DEUDOR","MONTO","Texto",
+    "Cuenta","CeCo","Marca","Proceso","Asignacion"
+  ];
+
+  const ids = [
+    "concepto","caso","fechaCaso","fechaDevolucion","rut","nombre","banco",
+    "cuentaVista","correo","ref2","ref3","monto","texto","proceso","asignacion"
+  ];
+
+  const $ = (id) => document.getElementById(id);
+
+  function normalizeEdsCode(value) {
+    return String(value ?? "").replace(/\D/g, "").replace(/^0+/, "");
+  }
+
+  function directoryBundle() {
+    try {
+      const panel = JSON.parse(localStorage.getItem("panel_operativo_casos_v1") || "null");
+      const rows = panel?.directory?.customRows;
+      if (rows && Object.keys(rows).length) {
+        return { rows, meta: panel.directory.meta || window.EDS_META || {} };
+      }
+    } catch (_) {}
+    return { rows: window.EDS_DATA || {}, meta: window.EDS_META || {} };
+  }
+
+  function lookupDeudorByEds(showMissing = true) {
+    const raw = $("deudorEds").value;
+    const code = normalizeEdsCode(raw);
+    const status = $("deudorLookupStatus");
+    if (!code) {
+      status.className = "eds-lookup-status";
+      status.textContent = "Acepta 60823 o 0000060823.";
+      return false;
+    }
+    const row = directoryBundle().rows[code];
+    if (!row) {
+      if (showMissing) {
+        status.className = "eds-lookup-status error";
+        status.textContent = `EDS ${code} no encontrada en la nómina.`;
+      } else {
+        status.className = "eds-lookup-status";
+        status.textContent = "Acepta 60823 o 0000060823.";
+      }
+      return false;
+    }
+    $("ref3").value = String(row.Deudor ?? "");
+    status.className = "eds-lookup-status ok";
+    status.textContent = `EDS ${code} · Deudor ${row.Deudor ?? "—"} · ${row.Jefe_Zona || "sin JZ"}`;
+    normalizeVisibleField("ref3");
+    setFieldError("ref3", "");
+    renderPreview();
+    return true;
+  }
+
+  function fillCatalogs() {
+    $("concepto").innerHTML =
+      '<option value="">Selecciona un concepto...</option>' +
+      concepts.map(([code, name]) => `<option value="${code}">${code} — ${name}</option>`).join("");
+
+    $("proceso").innerHTML =
+      '<option value="">Sin proceso / recobro</option>' +
+      '<option value="I003">I003</option>' +
+      '<option value="I013">I013</option>';
+
+    $("bankList").innerHTML = banks
+      .map(([code, name]) => `<option value="${code} — ${name}"></option>`)
+      .join("");
+  }
+
+  function buildPreviewTable() {
+    $("letterRow").innerHTML = headers.map((_, i) => `<th>${String.fromCharCode(65+i)}</th>`).join("");
+    $("headerRow").innerHTML = headers.map(h => `<th>${escapeHtml(h)}</th>`).join("");
+    renderPreview();
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function asciiClean(value) {
+    return String(value ?? "")
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .replace(/[–—]/g, "-")
+      .replace(/\u00A0/g, " ")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\x20-\x7E]/g, "");
+  }
+
+  function digitsOnly(value) {
+    return String(value ?? "").replace(/\D/g, "");
+  }
+
+  function cleanAccount(value) {
+    const digits = digitsOnly(value);
+    if (!digits) return "";
+    const noLeading = digits.replace(/^0+/, "");
+    return noLeading || "0";
+  }
+
+  function cleanAmount(value) {
+    return digitsOnly(value);
+  }
+
+  function toSapDate(value) {
+    if (!value) return "";
+    const parts = value.split("-");
+    if (parts.length !== 3) return "";
+    return `${parts[2]}${parts[1]}${parts[0]}`;
+  }
+
+  function normalizeRut(raw) {
+    let v = String(raw ?? "").toUpperCase().replace(/\./g, "").replace(/\s+/g, "");
+    v = v.replace(/[^0-9K-]/g, "");
+    if (!v.includes("-") && /^[0-9]+[0-9K]$/.test(v) && v.length >= 8) {
+      v = v.slice(0, -1) + "-" + v.slice(-1);
+    }
+    const match = v.match(/^(\d+)-?([0-9K])$/);
+    if (!match) return v;
+    return `${match[1]}-${match[2]}`;
+  }
+
+  function validRut(normalizedRut) {
+    const match = String(normalizedRut).match(/^(\d{7,8})-([0-9K])$/);
+    if (!match) return false;
+
+    const body = match[1];
+    const dv = match[2];
+    let sum = 0;
+    let factor = 2;
+
+    for (let i = body.length - 1; i >= 0; i--) {
+      sum += Number(body[i]) * factor;
+      factor = factor === 7 ? 2 : factor + 1;
+    }
+
+    const res = 11 - (sum % 11);
+    const expected = res === 11 ? "0" : res === 10 ? "K" : String(res);
+    return dv === expected;
+  }
+
+  function bankCode(value) {
+    const v = String(value ?? "").trim();
+    if (!v) return "";
+
+    const leading = v.match(/^(\d{3})\s*[—-]/);
+    if (leading && banks.some(([code]) => code === leading[1])) return leading[1];
+
+    if (/^\d{3}$/.test(v) && banks.some(([code]) => code === v)) return v;
+
+    const byName = banks.find(([, name]) => name.toLowerCase() === v.toLowerCase());
+    return byName ? byName[0] : "";
+  }
+
+  function normalizedSearchText(value) {
+    return asciiClean(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9@.\-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function detectBankFromText(raw) {
+    const text = normalizedSearchText(raw);
+    if (!text) return null;
+
+    const aliases = [
+      ["Banco Santander Santiago", ["santander"]],
+      ["Banco de Chile", ["banco de chile", "banco chile", "bancochile"]],
+      ["Banco Edwards", ["banco edwards", "edwards"]],
+      ["CITIBANK", ["citibank", "citi bank"]],
+      ["Banco del Estado de Chile", ["banco estado", "bancoestado", "banco del estado"]],
+      ["Banco de créditos e inversiones", ["bci", "banco de creditos e inversiones"]],
+      ["Banco ITAU", ["itau"]],
+      ["Scotiabank Sud Americano", ["scotiabank", "scotia"]],
+      ["Banco Bice", ["bice"]],
+      ["Banco Security", ["security"]],
+      ["Banco Falabella", ["falabella"]],
+      ["Banco Ripley", ["ripley"]],
+      ["Banco Consorcio", ["consorcio"]],
+      ["Banco BBVA", ["bbva"]],
+      ["Banco del Desarrollo", ["banco del desarrollo"]],
+      ["Coopeuch", ["coopeuch"]],
+      ["Mach", ["mach"]],
+      ["Copec Pay", ["copec pay", "copecpay"]],
+      ["Tenpo", ["tenpo"]],
+      ["Tapp Caja los Andes", ["tapp", "caja los andes"]],
+      ["Mercadopago S.A.", ["mercadopago", "mercado pago"]],
+      ["Banco Internacional", ["banco internacional"]],
+      ["Branco do Brasil", ["branco do brasil", "banco do brasil"]],
+      ["Corpbanca", ["corpbanca"]],
+      ["HSBC Bank (Chile)", ["hsbc"]],
+      ["Jp Morgan Chase Bank, N.A.", ["jp morgan", "jpmorgan"]],
+      ["Banco de la Nación Argentina", ["nacion argentina"]],
+      ["Tokyo Mitsubishi", ["tokyo mitsubishi", "mitsubishi"]],
+      ["ABN AMRO Bank", ["abn amro"]],
+      ["Deutsche Bank (Chile)", ["deutsche"]],
+      ["Rabobank", ["rabobank"]],
+      ["Banco Penta", ["penta"]],
+      ["Banco Paris", ["banco paris"]]
+    ];
+
+    for (const [officialName, names] of aliases) {
+      if (names.some(alias => text.includes(alias))) {
+        const match = banks.find(([, name]) => name === officialName);
+        if (match) return { code: match[0], name: match[1], display: `${match[0]} — ${match[1]}` };
+      }
+    }
+
+    const labeledCode = raw.match(/(?:banco|cod(?:igo)?\s*banco)\s*[:#-]?\s*(\d{3})\b/i);
+    if (labeledCode) {
+      const match = banks.find(([code]) => code === labeledCode[1]);
+      if (match) return { code: match[0], name: match[1], display: `${match[0]} — ${match[1]}` };
+    }
+
+    return null;
+  }
+
+  function detectRutFromText(raw) {
+    const candidates = String(raw).match(/\b(?:\d{1,2}(?:\.\d{3}){2}|\d{7,8})\s*-?\s*[0-9kK]\b/g) || [];
+    for (const candidate of candidates) {
+      const normalized = normalizeRut(candidate.replace(/\s+/g, ""));
+      if (validRut(normalized)) return normalized;
+    }
+    return "";
+  }
+
+  function detectEmailFromText(raw) {
+    const matches = String(raw).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/ig) || [];
+    return matches[0] || "";
+  }
+
+  function detectAccountFromText(raw, rut) {
+    const text = String(raw);
+    const labelPatterns = [
+      /(?:n(?:u|ú)mero\s+de\s+cuenta|cuenta\s+(?:corriente|vista)|cuenta|cta\.?)(?:\s+bancaria)?\s*[:#-]?\s*([0-9][0-9 .-]{4,24})/i,
+      /(?:account)\s*[:#-]?\s*([0-9][0-9 .-]{4,24})/i
+    ];
+
+    for (const pattern of labelPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const digits = digitsOnly(match[1]);
+        if (digits.length >= 5) return cleanAccount(digits);
+      }
+    }
+
+    const rutDigits = digitsOnly(rut);
+    const email = detectEmailFromText(text);
+    const scrubbed = text.replace(email, " ");
+    const candidates = scrubbed.match(/\b\d(?:[\d .-]{4,22})\d\b/g) || [];
+    const usable = candidates
+      .map(v => digitsOnly(v))
+      .filter(v => v.length >= 6 && v.length <= 20)
+      .filter(v => !rutDigits || !rutDigits.startsWith(v) && !v.startsWith(rutDigits.slice(0, -1)))
+      .filter(v => !/^\d{3}$/.test(v));
+
+    return usable.length === 1 ? cleanAccount(usable[0]) : "";
+  }
+
+  function detectNameFromText(raw, known = {}) {
+    const text = String(raw).replace(/\r/g, "\n");
+    const labeled = text.match(/(?:^|\n|[;|])\s*(?:nombre(?:\s+cliente)?|titular|beneficiario|cliente|raz[oó]n\s+social)\s*[:#-]\s*([^\n;|]+)/i);
+    if (labeled) {
+      const candidate = asciiClean(labeled[1]).trim().replace(/\s+/g, " ");
+      if (candidate && candidate.length <= 32) return candidate;
+    }
+
+    const bankWords = normalizedSearchText(known.bankName || "").split(" ").filter(Boolean);
+    const lines = text.split(/[\n;|]+/).map(v => v.trim()).filter(Boolean);
+    for (const line of lines) {
+      const clean = asciiClean(line).trim().replace(/\s+/g, " ");
+      const low = normalizedSearchText(clean);
+      if (!clean || clean.length > 32 || clean.length < 5) continue;
+      if (known.email && clean.includes(known.email)) continue;
+      if (known.rut && digitsOnly(clean).includes(digitsOnly(known.rut).slice(0, -1))) continue;
+      if (known.account && digitsOnly(clean) === digitsOnly(known.account)) continue;
+      if (/\b(rut|correo|mail|email|banco|cuenta|cta|telefono|fono|celular)\b/i.test(low)) continue;
+      if (bankWords.length && bankWords.some(w => w.length > 4 && low.includes(w))) continue;
+      if (/^[A-Za-z][A-Za-z .'-]+$/.test(clean) && clean.split(/\s+/).length >= 2) return clean;
+    }
+    return "";
+  }
+
+  function detectClientData(raw) {
+    const email = detectEmailFromText(raw);
+    const rut = detectRutFromText(raw);
+    const bank = detectBankFromText(raw);
+    const account = detectAccountFromText(raw, rut);
+    const name = detectNameFromText(raw, {
+      email,
+      rut,
+      account,
+      bankName: bank?.name || ""
+    });
+
+    const warnings = [];
+    if (email && email.length > 32) warnings.push("El correo detectado supera 32 caracteres y no se cargará.");
+    if (name && name.length > 32) warnings.push("El nombre detectado supera 32 caracteres y no se cargará.");
+
+    return {
+      nombre: name.length <= 32 ? name : "",
+      rut,
+      banco: bank?.display || "",
+      cuentaVista: account,
+      correo: email.length <= 32 ? asciiClean(email) : "",
+      warnings
+    };
+  }
+
+  let pendingDetectedClient = null;
+
+  function renderDetectedClient(data) {
+    const fields = [
+      ["Nombre", data.nombre],
+      ["RUT", data.rut],
+      ["Banco", data.banco],
+      ["Cuenta", data.cuentaVista],
+      ["Correo", data.correo]
+    ];
+    const found = fields.filter(([, value]) => value).length;
+    $("detectedGrid").innerHTML = fields.map(([label, value]) =>
+      `<div class="detected-label">${escapeHtml(label)}</div><div class="detected-value ${value ? "" : "missing"}">${value ? escapeHtml(value) : "No detectado"}</div>`
+    ).join("");
+
+    const warningText = data.warnings.length ? ` ${data.warnings.join(" ")}` : "";
+    $("detectMessage").textContent = found
+      ? `Detectamos ${found} de 5 datos. Confirma antes de completar.${warningText}`
+      : `No pudimos identificar datos con suficiente certeza.${warningText}`;
+    $("applyDetectedBtn").disabled = found === 0;
+    $("detectResult").classList.add("show");
+  }
+
+  function hideDetectedClient() {
+    pendingDetectedClient = null;
+    $("detectResult").classList.remove("show");
+    $("detectedGrid").innerHTML = "";
+    $("detectMessage").textContent = "";
+  }
+
+  function detectClientFromPaste() {
+    const raw = $("clientPaste").value.trim();
+    if (!raw) {
+      pendingDetectedClient = null;
+      renderDetectedClient({ nombre: "", rut: "", banco: "", cuentaVista: "", correo: "", warnings: ["Pega primero un bloque de datos."] });
+      return;
+    }
+    pendingDetectedClient = detectClientData(raw);
+    renderDetectedClient(pendingDetectedClient);
+  }
+
+  function applyDetectedClient() {
+    const data = pendingDetectedClient;
+    if (!data) return;
+
+    const mapping = ["nombre", "rut", "banco", "cuentaVista", "correo"];
+    mapping.forEach(id => {
+      if (!data[id]) return;
+      $(id).value = data[id];
+      setFieldError(id, "");
+    });
+
+    if (data.rut) $("rut").value = normalizeRut(data.rut);
+    if (data.cuentaVista) $("cuentaVista").value = cleanAccount(data.cuentaVista);
+    if (data.nombre) $("nombre").value = asciiClean(data.nombre).slice(0, 32);
+    if (data.correo) $("correo").value = asciiClean(data.correo).slice(0, 32);
+
+    updateCounters();
+    renderPreview();
+    hideDetectedClient();
+    showNotice("Datos del cliente completados con la información detectada. Revísalos antes de generar.", "success");
+  }
+
+  function setFieldError(id, message) {
+    const el = $(id);
+    const helper = $("err-" + id);
+    if (el) el.classList.toggle("invalid", Boolean(message));
+    if (helper) {
+      if (!helper.dataset.defaultText) helper.dataset.defaultText = helper.textContent;
+      helper.textContent = message || helper.dataset.defaultText;
+      helper.classList.toggle("error", Boolean(message));
+    }
+  }
+
+  function clearErrors() {
+    ids.forEach(id => setFieldError(id, ""));
+  }
+
+  function collectData(validate = false) {
+    const errors = {};
+
+    const concept = $("concepto").value.trim().toUpperCase();
+    const caso = digitsOnly($("caso").value);
+    const fechaCaso = toSapDate($("fechaCaso").value);
+    const fechaDevolucion = toSapDate($("fechaDevolucion").value);
+    const rut = normalizeRut($("rut").value);
+    const nombre = asciiClean($("nombre").value).slice(0, 32);
+    const bank = bankCode($("banco").value);
+    const account = cleanAccount($("cuentaVista").value);
+    const email = asciiClean($("correo").value).slice(0, 32);
+    const ref2 = asciiClean($("ref2").value).slice(0, 32);
+    const ref3 = asciiClean($("ref3").value);
+    const amount = cleanAmount($("monto").value);
+    const text = asciiClean($("texto").value).slice(0, 32);
+    const process = $("proceso").value.trim().toUpperCase();
+    const assignment = asciiClean($("asignacion").value);
+    const mark = document.querySelector('input[name="marca"]:checked')?.value === "SI" ? "X" : "";
+
+    if (validate) {
+      if (!concept) errors.concepto = "Selecciona un código de concepto.";
+
+      if (!caso || caso.length !== 8) {
+        errors.caso = caso ? "Inserta 8 caracteres." : "Ingresa el N° de caso.";
+      }
+
+      if (!$("fechaCaso").value) errors.fechaCaso = "Selecciona la fecha del caso.";
+      if (!$("fechaDevolucion").value) errors.fechaDevolucion = "Selecciona la fecha de devolución.";
+
+      if (!rut) errors.rut = "Ingresa el RUT.";
+      else if (!validRut(rut)) errors.rut = "RUT inválido: revisa el dígito verificador.";
+
+      if (!nombre) errors.nombre = "Ingresa el nombre del cliente.";
+
+      if (!$("banco").value.trim()) errors.banco = "Selecciona un banco.";
+      else if (!bank) errors.banco = "Selecciona un banco válido de la lista.";
+
+      if (!account) errors.cuentaVista = "Ingresa el número de cuenta.";
+
+      if (!email) errors.correo = "Ingresa el correo.";
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.correo = "Ingresa un correo válido.";
+
+      if (!amount) errors.monto = "Ingresa el monto.";
+      if (!text) errors.texto = "Ingresa la descripción.";
+    }
+
+    const row = [
+      concept,
+      caso,
+      fechaCaso,
+      fechaDevolucion,
+      "Sr",
+      rut,
+      nombre,
+      "SANTIAGO",
+      bank,
+      account,
+      email,
+      ref2,
+      ref3,
+      amount,
+      text,
+      "",
+      "",
+      mark,
+      process,
+      assignment
+    ];
+
+    return { row, errors };
+  }
+
+  function renderPreview() {
+    const { row } = collectData(false);
+    $("previewRow").innerHTML = row
+      .map(v => `<td class="${v === "" ? "empty" : ""}">${v === "" ? "—" : escapeHtml(v)}</td>`)
+      .join("");
+
+    const requiredComplete =
+      $("concepto").value &&
+      digitsOnly($("caso").value).length === 8 &&
+      $("fechaCaso").value &&
+      $("fechaDevolucion").value &&
+      validRut(normalizeRut($("rut").value)) &&
+      asciiClean($("nombre").value) &&
+      bankCode($("banco").value) &&
+      cleanAccount($("cuentaVista").value) &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(asciiClean($("correo").value)) &&
+      cleanAmount($("monto").value) &&
+      asciiClean($("texto").value);
+
+    $("statusPill").textContent = requiredComplete ? "Listo para generar" : "Formulario incompleto";
+    $("statusPill").classList.toggle("ok", Boolean(requiredComplete));
+  }
+
+  function updateCounters() {
+    ["nombre","correo","ref2","texto"].forEach(id => {
+      const count = $("count-" + id);
+      if (count) count.textContent = $(id).value.length;
+    });
+  }
+
+  function normalizeVisibleField(id) {
+    const el = $(id);
+    if (!el) return;
+
+    if (["nombre","correo","ref2","ref3","texto","asignacion"].includes(id)) {
+      el.value = asciiClean(el.value);
+    } else if (id === "caso") {
+      el.value = digitsOnly(el.value).slice(0, 8);
+    } else if (id === "cuentaVista") {
+      el.value = digitsOnly(el.value);
+    } else if (id === "monto") {
+      el.value = cleanAmount(el.value);
+    } else if (id === "rut") {
+      el.value = String(el.value)
+        .toUpperCase()
+        .replace(/[^0-9Kk.\-\s]/g, "")
+        .replace(/k/g, "K");
+    }
+
+    updateCounters();
+    renderPreview();
+  }
+
+  function validateAll() {
+    clearErrors();
+    const result = collectData(true);
+
+    Object.entries(result.errors).forEach(([id, message]) => setFieldError(id, message));
+
+    if (Object.keys(result.errors).length) {
+      const first = Object.keys(result.errors)[0];
+      $(first)?.focus();
+      showNotice(`Revisa ${Object.keys(result.errors).length} campo(s) antes de generar el archivo.`, "error");
+      return null;
+    }
+
+    return result.row;
+  }
+
+  function showNotice(message, type) {
+    const n = $("notice");
+    n.textContent = message;
+    n.className = `notice show ${type}`;
+  }
+
+  function hideNotice() {
+    $("notice").className = "notice";
+    $("notice").textContent = "";
+  }
+
+  function base64ToArrayBuffer(base64) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  async function generateExcel() {
+    hideNotice();
+    const row = validateAll();
+    if (!row) return;
+
+    if (typeof ExcelJS === "undefined") {
+      showNotice("No se pudo cargar el motor de Excel. Revisa la conexión a internet y vuelve a intentar.", "error");
+      return;
+    }
+
+    const btn = $("generateBtn");
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Generando...";
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(base64ToArrayBuffer(TEMPLATE_B64));
+
+      const ws = workbook.worksheets[0];
+      if (!ws) throw new Error("La plantilla no contiene una hoja.");
+
+      // Mantener la fila 1 intacta y completar únicamente A2:T2.
+      row.forEach((value, i) => {
+        const cell = ws.getCell(2, i + 1);
+        cell.value = value === "" ? null : String(value);
+      });
+
+      // Fuerza salida textual en los campos sensibles a ceros/precisión.
+      ["A2","B2","C2","D2","E2","G2","H2","I2","J2","K2","L2","M2","N2","O2","Q2","R2","S2","T2"]
+        .forEach(addr => { ws.getCell(addr).numFmt = "@"; });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob(
+        [buffer],
+        { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }
+      );
+
+      const caseNumber = row[1];
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Caso ${caseNumber}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+      showNotice(`Archivo "Caso ${caseNumber}.xlsx" generado correctamente.`, "success");
+    } catch (err) {
+      console.error(err);
+      showNotice("No fue posible generar el Excel. Revisa la consola del navegador para más detalle.", "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  }
+
+  function todayForDateInput() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  function setDefaultFechaDevolucion() {
+    const el = $("fechaDevolucion");
+    if (el && !el.value) el.value = todayForDateInput();
+  }
+
+  function clearForm() {
+    ids.forEach(id => {
+      const el = $(id);
+      if (!el) return;
+      if (el.tagName === "SELECT") el.selectedIndex = 0;
+      else el.value = "";
+    });
+
+    $("clientPaste").value = "";
+    $("deudorEds").value = "";
+    $("deudorLookupStatus").className = "eds-lookup-status";
+    $("deudorLookupStatus").textContent = "Acepta 60823 o 0000060823.";
+    hideDetectedClient();
+    setDefaultFechaDevolucion();
+    $("marcaNo").checked = true;
+    clearErrors();
+    hideNotice();
+    updateCounters();
+    renderPreview();
+    $("concepto").focus();
+  }
+
+  function wireEvents() {
+    ids.forEach(id => {
+      const el = $(id);
+      if (!el) return;
+
+      el.addEventListener("input", () => {
+        normalizeVisibleField(id);
+        setFieldError(id, "");
+        hideNotice();
+      });
+
+      el.addEventListener("change", () => {
+        normalizeVisibleField(id);
+        setFieldError(id, "");
+        hideNotice();
+      });
+    });
+
+    $("rut").addEventListener("blur", () => {
+      const normalized = normalizeRut($("rut").value);
+      $("rut").value = normalized;
+      if (normalized && !validRut(normalized)) {
+        setFieldError("rut", "RUT inválido: revisa el dígito verificador.");
+      } else {
+        setFieldError("rut", "");
+      }
+      renderPreview();
+    });
+
+    $("caso").addEventListener("blur", () => {
+      const v = digitsOnly($("caso").value);
+      if (v && v.length !== 8) setFieldError("caso", "Inserta 8 caracteres.");
+      else setFieldError("caso", "");
+    });
+
+    $("cuentaVista").addEventListener("blur", () => {
+      $("cuentaVista").value = cleanAccount($("cuentaVista").value);
+      renderPreview();
+    });
+
+    ["marcaNo","marcaSi"].forEach(id => $(id).addEventListener("change", renderPreview));
+
+    $("detectClientBtn").addEventListener("click", detectClientFromPaste);
+    $("applyDetectedBtn").addEventListener("click", applyDetectedClient);
+    $("cancelDetectedBtn").addEventListener("click", hideDetectedClient);
+    $("clientPaste").addEventListener("input", () => {
+      if ($("detectResult").classList.contains("show")) hideDetectedClient();
+    });
+
+    $("lookupDeudorBtn").addEventListener("click", () => lookupDeudorByEds(true));
+    $("deudorEds").addEventListener("input", () => {
+      const code = normalizeEdsCode($("deudorEds").value);
+      if (!code) {
+        $("deudorLookupStatus").className = "eds-lookup-status";
+        $("deudorLookupStatus").textContent = "Acepta 60823 o 0000060823.";
+        return;
+      }
+      if (directoryBundle().rows[code]) lookupDeudorByEds(false);
+    });
+    $("deudorEds").addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        lookupDeudorByEds(true);
+      }
+    });
+    $("deudorEds").addEventListener("blur", () => {
+      if ($("deudorEds").value.trim()) lookupDeudorByEds(false);
+    });
+
+    $("generateBtn").addEventListener("click", generateExcel);
+    $("clearBtn").addEventListener("click", clearForm);
+  }
+
+  fillCatalogs();
+  buildPreviewTable();
+  setDefaultFechaDevolucion();
+  wireEvents();
+  updateCounters();
+  renderPreview();
+})();
+</script>
+</body>
+</html>

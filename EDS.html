@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buscador de Estaciones EDS</title>
+<script src="eds-data.js"></script>
+<style>
+:root{
+  --bg:#f5f7fb;--surface:#fff;--surface2:#f8fafc;--ink:#17243a;--muted:#68758a;
+  --line:#dfe5ee;--navy:#142b4a;--blue:#2563eb;--green:#15803d;--amber:#b77900;
+  --shadow:0 16px 48px rgba(20,43,74,.09)
+}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
+button,input{font:inherit}button{cursor:pointer}
+.top{position:sticky;top:0;z-index:20;background:rgba(245,247,251,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.topin{max-width:1480px;margin:auto;padding:18px 22px 15px}
+.brandrow{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;gap:12px}.mark{width:40px;height:40px;border-radius:12px;background:linear-gradient(145deg,#16385f,#2563eb);display:grid;place-items:center;color:white;font-weight:900}
+h1{font-size:22px;margin:0;letter-spacing:-.025em}.sub{font-size:12px;color:var(--muted);margin:2px 0 0}
+.nav{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:9px 12px;font-size:12px;font-weight:750;text-decoration:none;display:inline-flex;align-items:center;gap:7px}.btn:hover{background:#f8fafc;border-color:#c8d2df}.btn.primary{background:var(--navy);border-color:var(--navy);color:white}
+.searchrow{display:grid;grid-template-columns:minmax(280px,1fr) auto;gap:10px;margin-top:15px}.search{position:relative}.search input{width:100%;height:45px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 14px 0 42px;outline:none;font-size:14px}.search input:focus{border-color:#91ace8;box-shadow:0 0 0 3px rgba(37,99,235,.08)}.search span{position:absolute;left:14px;top:11px;color:#758298;font-size:18px}
+main{max-width:1480px;margin:auto;padding:20px 22px 50px}
+.meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}.stat{background:#fff;border:1px solid var(--line);border-radius:13px;padding:12px 14px;box-shadow:0 4px 18px rgba(20,43,74,.03)}.stat small{display:block;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}.stat b{display:block;font-size:18px;margin-top:2px}.warning{display:none;margin-bottom:12px;padding:10px 12px;border-radius:10px;background:#fff8e8;border:1px solid #f1d28c;color:#75520c;font-size:12px}.warning.show{display:block}
+.card{background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow);overflow:hidden}.cardhead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid var(--line)}.cardhead b{font-size:14px}.cardhead span{font-size:11px;color:var(--muted)}
+.tablewrap{overflow:auto;max-height:calc(100vh - 260px)}table{width:100%;border-collapse:separate;border-spacing:0;min-width:1050px}th{position:sticky;top:0;z-index:3;background:#f8fafc;border-bottom:1px solid var(--line);padding:10px;text-align:left;font-size:10.5px;color:#5e6b7e;text-transform:uppercase;letter-spacing:.055em}td{padding:10px;border-bottom:1px solid #edf1f6;font-size:12px;vertical-align:top}tr:hover td{background:#fbfdff}
+.code{font-size:14px;font-weight:900;color:#153250}.mail{display:flex;align-items:center;gap:6px}.copy{width:27px;height:27px;border:1px solid var(--line);border-radius:7px;background:#fff;color:#46617f;display:grid;place-items:center;padding:0}.copy:hover{background:#edf4ff;color:#1f4e8c}.strong{font-weight:750}.muted{color:var(--muted)}details summary{cursor:pointer;color:#315f9c;font-weight:800;font-size:11px;list-style:none}details summary::-webkit-details-marker{display:none}.info{margin-top:8px;display:grid;grid-template-columns:repeat(2,minmax(160px,1fr));gap:6px}.i{background:#f8fafc;border:1px solid #edf1f5;border-radius:8px;padding:7px}.i small{display:block;color:#7b8798;font-size:9px;text-transform:uppercase;font-weight:800}.i b{display:block;font-size:11px;margin-top:2px;white-space:normal}
+.empty{padding:44px;text-align:center;color:var(--muted)}.exact{background:#edf4ff!important;box-shadow:inset 4px 0 0 #2563eb}
+@media(max-width:850px){.meta{grid-template-columns:1fr}.searchrow{grid-template-columns:1fr}.brandrow{align-items:flex-start;flex-direction:column}.nav{justify-content:flex-start}.info{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="topin">
+    <div class="brandrow">
+      <div class="brand"><div class="mark">E</div><div><h1>Buscador de Estaciones EDS</h1><p class="sub">Consulta rápida de nómina para ejecutivos</p></div></div>
+      <nav class="nav">
+        <a class="btn" href="index.html">← Panel</a>
+        <a class="btn" href="SAP.html">Pagos SAP</a>
+        <a class="btn" href="SERNAC.html">SERNAC</a>
+      </nav>
+    </div>
+    <div class="searchrow">
+      <div class="search"><span>⌕</span><input id="q" autocomplete="off" autofocus placeholder="Busca EDS, deudor, JZ, comuna, razón social o localidad…"></div>
+      <button class="btn primary" id="clear">Limpiar búsqueda</button>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="meta">
+    <div class="stat"><small>Nómina en uso</small><b id="directoryLabel">—</b></div>
+    <div class="stat"><small>Estaciones</small><b id="total">0</b></div>
+    <div class="stat"><small>Resultados</small><b id="visible">0</b></div>
+  </div>
+  <div class="warning" id="warning"></div>
+  <section class="card">
+    <div class="cardhead"><b>Directorio EDS</b><span id="hint">Ordenado por código SAP</span></div>
+    <div class="tablewrap" id="wrap">
+      <table>
+        <thead><tr><th>EDS</th><th>Correo estación</th><th>Jefe de zona</th><th>Deudor</th><th>Comuna</th><th>Más información</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+'use strict';
+const STORAGE_KEY='panel_operativo_casos_v1';
+const $=id=>document.getElementById(id);
+function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function normalize(v){return String(v??'').replace(/\D/g,'').replace(/^0+/,'');}
+function getBundle(){
+  try{
+    const s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+    if(s?.directory?.customRows && Object.keys(s.directory.customRows).length){
+      return {rows:s.directory.customRows,meta:s.directory.meta||window.EDS_META||{},custom:true};
+    }
+  }catch(_){}
+  return {rows:window.EDS_DATA||{},meta:window.EDS_META||{},custom:false};
+}
+const bundle=getBundle();
+const all=Object.entries(bundle.rows).map(([code,row])=>({code:normalize(code),...row})).sort((a,b)=>Number(a.code)-Number(b.code));
+function isOld(){
+  const ref=bundle.meta?.referenceDate;if(!ref)return false;
+  const d=new Date(`${ref}T12:00:00`); if(Number.isNaN(d.getTime()))return false;
+  d.setMonth(d.getMonth()+2); return new Date()>=d;
+}
+function copy(text,btn){
+  navigator.clipboard?.writeText(String(text??'')).then(()=>{
+    const old=btn.textContent;btn.textContent='✓';setTimeout(()=>btn.textContent=old,900);
+  }).catch(()=>{});
+}
+function copyBtn(value,label){return `<button class="copy" data-copy="${esc(value)}" title="Copiar ${esc(label)}">⧉</button>`;}
+function more(r){
+  const items=[
+    ['RUT',r.Num_Rut],['Razón social',r.Razon_social],['Dirección',r['Dirección']],['Región',r['Región']],
+    ['Localidad',r.Localidad],['Jefe comercial',r.Jefe_Comercial],['Centro suministrador',r['Cent.Suministrador']]
+  ];
+  return `<details><summary>Más info ▾</summary><div class="info">${items.map(([k,v])=>`<div class="i"><small>${esc(k)}</small><b>${esc(v||'—')}</b></div>`).join('')}</div></details>`;
+}
+function rowHtml(r,exact){
+  const email=`${r.code}@escopec.cl`;
+  return `<tr class="${exact?'exact':''}">
+    <td><div class="code">${esc(r.code)}</div></td>
+    <td><div class="mail"><span>${esc(email)}</span>${copyBtn(email,'correo')}</div></td>
+    <td><div class="mail"><span class="strong">${esc(r.Jefe_Zona||'—')}</span>${r.Jefe_Zona?copyBtn(r.Jefe_Zona,'JZ'):''}</div></td>
+    <td><div class="mail"><span class="strong">${esc(r.Deudor??'—')}</span>${r.Deudor!==''&&r.Deudor!=null?copyBtn(r.Deudor,'deudor'):''}</div></td>
+    <td><span>${esc(r.Comuna||'—')}</span></td>
+    <td>${more(r)}</td>
+  </tr>`;
+}
+function matches(r,q){
+  if(!q)return true;
+  const numeric=normalize(q);
+  if(numeric && r.code===numeric)return true;
+  const hay=[r.code,r.Deudor,r.Jefe_Zona,r.Jefe_Comercial,r.Razon_social,r.Comuna,r.Localidad,r.Num_Rut,r['Cent.Suministrador'],`${r.code}@escopec.cl`].join(' ').toLowerCase();
+  return hay.includes(q.toLowerCase());
+}
+function render(){
+  const raw=$('q').value.trim();const numeric=normalize(raw);
+  const list=all.filter(r=>matches(r,raw));
+  $('rows').innerHTML=list.length?list.map(r=>rowHtml(r,!!numeric&&r.code===numeric)).join(''):`<tr><td colspan="6"><div class="empty">No encontré estaciones para “${esc(raw)}”.</div></td></tr>`;
+  $('visible').textContent=list.length;
+  $('hint').textContent=raw?`${list.length} coincidencia${list.length===1?'':'s'} · ordenadas por EDS`:'Ordenado por código SAP';
+  document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>copy(b.dataset.copy,b));
+  if(numeric && list.length===1){document.getElementById('wrap').scrollTop=0;}
+}
+$('directoryLabel').textContent=bundle.meta?.label||'Nómina EDS';
+$('total').textContent=all.length;
+if(isOld()){
+  $('warning').classList.add('show');
+  $('warning').innerHTML=`<b>${esc(bundle.meta?.label||'Nómina')}:</b> han pasado 2 meses o más desde la fecha de referencia. Se recomienda actualizar la nómina desde Configuración del Panel Operativo.`;
+}
+$('q').addEventListener('input',render);
+$('clear').onclick=()=>{$('q').value='';render();$('q').focus();};
+render();
+})();
+</script>
+</body>
+</html>
