@@ -105,6 +105,8 @@
   @media(max-width:1000px){.station-primary{grid-template-columns:1fr 1fr}.info-grid{grid-template-columns:1fr 1fr}.aux-grid{grid-template-columns:1fr}.vdr-item{grid-template-columns:1fr 1fr}.vdr-item>div{grid-column:1/-1}}
   @media(max-width:700px){.station-primary,.info-grid,.aux-fields{grid-template-columns:1fr}.ppu-row{align-items:stretch;flex-direction:column}.detail-panel{padding:10px}}
 
+
+.tools-menu{position:relative}.tools-menu>summary{list-style:none;user-select:none}.tools-menu>summary::-webkit-details-marker{display:none}.tools-menu[open]>summary{background:#e8eef9;border-color:#bac8df;color:#203c6f}.tools-menu[open] .tools-chevron{transform:rotate(180deg)}.tools-chevron{display:inline-block;transition:transform .15s ease}.tools-dropdown{position:absolute;right:0;top:calc(100% + 8px);z-index:80;width:260px;padding:7px;background:#fff;border:1px solid #d9e1ec;border-radius:13px;box-shadow:0 18px 48px rgba(30,48,77,.18)}.tools-dropdown a{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:9px;text-decoration:none;color:#24324a}.tools-dropdown a:hover{background:#f2f6fb}.tools-dropdown b{display:block;font-size:12px;line-height:1.25}.tools-dropdown small{display:block;margin-top:2px;font-size:10px;color:#7b8799;font-weight:600}.tool-glyph{display:grid;place-items:center;width:28px;height:28px;flex:0 0 28px;border-radius:8px;background:#edf2fa;color:#244477;font-size:12px;font-weight:900}
 </style>
 </head>
 <body>
@@ -121,10 +123,15 @@
           <button class="btn" id="btnNext">→ <span class="label">Siguiente caso</span></button>
           <button class="btn" id="btnExport">⇩ <span class="label">Exportar CSV</span></button>
           <button class="btn" id="btnExportAux" title="Exportar gestión Auxilia a Excel">A↓ <span class="label">Auxilia Excel</span></button>
-          <a class="btn" href="ConAux.html" title="Abrir dashboard consolidado Auxilia" style="text-decoration:none">◫ <span class="label">ConAux</span></a>
-          <a class="btn" href="SERNAC.html" target="_blank" rel="noopener" title="Generador de documentos SERNAC" style="text-decoration:none">S <span class="label">SERNAC</span></a>
-          <a class="btn" href="SAP.html" target="_blank" rel="noopener" title="Generador de pagos SAP" style="text-decoration:none">₽ <span class="label">Pagos SAP</span></a>
-          <a class="btn" href="EDS.html" target="_blank" rel="noopener" title="Buscar estación en la nómina EDS" style="text-decoration:none">⌕ <span class="label">EDS</span></a>
+          <details class="tools-menu">
+            <summary class="btn" title="Abrir herramientas"><span class="tools-icon">▦</span> <span class="label">Herramientas</span> <span class="tools-chevron">▾</span></summary>
+            <div class="tools-dropdown">
+              <a href="ConAux.html"><span class="tool-glyph">◫</span><span><b>ConAux</b><small>Dashboard consolidado Auxilia</small></span></a>
+              <a href="SERNAC.html" target="_blank" rel="noopener"><span class="tool-glyph">S</span><span><b>SERNAC</b><small>Generador de documentos</small></span></a>
+              <a href="SAP.html" target="_blank" rel="noopener"><span class="tool-glyph">₽</span><span><b>Pagos SAP</b><small>Generador de pagos</small></span></a>
+              <a href="EDS.html" target="_blank" rel="noopener"><span class="tool-glyph">⌕</span><span><b>Buscador EDS</b><small>Nómina y datos de estación</small></span></a>
+            </div>
+          </details>
           <button class="btn icon" id="btnSound" title="Sonido de seguimientos">🔊</button>
           <button class="btn icon" id="btnSettings" title="Configuración">⚙</button>
         </div>
@@ -460,12 +467,82 @@ function wireRows(){
   document.querySelectorAll('[data-note-del]').forEach(b=>b.onclick=()=>deleteNote(b.dataset.noteDel,b.dataset.noteId));
   wireAuxControls();
 }
-function openDetail(caseNo,tab){const y=window.scrollY;const wasOpen=ui.expanded.has(caseNo),same=ui.detailTab[caseNo]===tab;ui.detailTab[caseNo]=tab;if(!wasOpen||!same)ui.expanded.add(caseNo);else ui.expanded.delete(caseNo);renderTable();requestAnimationFrame(()=>window.scrollTo({top:y,left:0,behavior:'auto'}));}
+function openDetail(caseNo,tab){
+  const wrap=document.querySelector('.table-wrap');
+  const row=document.querySelector(`tr.case-row[data-case="${caseNo}"]`);
+  const pageY=window.scrollY;
+  const oldScrollTop=wrap?wrap.scrollTop:0;
+  const oldScrollLeft=wrap?wrap.scrollLeft:0;
+  const wrapRect=wrap?wrap.getBoundingClientRect():null;
+  const rowRect=row?row.getBoundingClientRect():null;
+  const rowViewportOffset=(wrapRect&&rowRect)?rowRect.top-wrapRect.top:null;
+
+  const wasOpen=ui.expanded.has(caseNo),same=ui.detailTab[caseNo]===tab;
+  const willOpen=!wasOpen||!same;
+  ui.detailTab[caseNo]=tab;
+  if(willOpen)ui.expanded.add(caseNo);else ui.expanded.delete(caseNo);
+
+  renderTable();
+  requestAnimationFrame(()=>{
+    window.scrollTo({top:pageY,left:0,behavior:'auto'});
+    const newWrap=document.querySelector('.table-wrap');
+    if(!newWrap)return;
+    newWrap.scrollLeft=oldScrollLeft;
+    newWrap.scrollTop=oldScrollTop;
+
+    requestAnimationFrame(()=>{
+      const newRow=document.querySelector(`tr.case-row[data-case="${caseNo}"]`);
+      const newWrapRect=newWrap.getBoundingClientRect();
+      if(newRow&&rowViewportOffset!==null){
+        const newRowRect=newRow.getBoundingClientRect();
+        newWrap.scrollTop += (newRowRect.top-newWrapRect.top)-rowViewportOffset;
+      }
+
+      if(willOpen){
+        const detail=newRow?.nextElementSibling?.classList.contains('detail-row')?newRow.nextElementSibling:null;
+        if(detail){
+          const r=detail.getBoundingClientRect();
+          const wr=newWrap.getBoundingClientRect();
+          const visibleTarget=Math.min(r.bottom,r.top+Math.min(300,r.height));
+          const limit=wr.bottom-14;
+          if(visibleTarget>limit)newWrap.scrollTop += visibleTarget-limit;
+          if(r.top<wr.top+8)newWrap.scrollTop -= (wr.top+8-r.top);
+        }
+      }
+    });
+  });
+}
 async function copyValue(value,label='Dato'){try{if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(value);else fallbackCopy(value);toast(label,'Copiado al portapapeles.');}catch(e){fallbackCopy(value);}}
 async function copyAndReview(caseNo){try{if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(caseNo);else fallbackCopy(caseNo);}catch(e){fallbackCopy(caseNo);}const c=state.cases[caseNo];c.reviewLog||=[];c.reviewLog.push({at:nowISO(),action:'copy'});saveState();render();toast(`Caso ${caseNo}`,`Copiado · Revisado ${fmtTime(new Date())}`);if(ui.focus===caseNo)renderFocus();}
 function fallbackCopy(text){const t=document.createElement('textarea');t.value=text;t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.focus();t.select();document.execCommand('copy');t.remove();}
-function addNote(caseNo,textOverride=null){const input=document.querySelector(`[data-note-input="${caseNo}"]`),text=(textOverride??input?.value??'').trim();if(!text)return;const c=state.cases[caseNo];c.notes||=[];c.notes.push({id:uid(),at:nowISO(),text});saveState();render();if(ui.focus===caseNo)renderFocus();}
-function deleteNote(caseNo,id){const c=state.cases[caseNo];c.notes=(c.notes||[]).filter(n=>n.id!==id);saveState();render();if(ui.focus===caseNo)renderFocus();}
+function rerenderTableAnchored(caseNo){
+  const wrap=document.querySelector('.table-wrap');
+  const row=document.querySelector(`tr.case-row[data-case="${caseNo}"]`);
+  const pageY=window.scrollY;
+  const oldScrollTop=wrap?wrap.scrollTop:0;
+  const oldScrollLeft=wrap?wrap.scrollLeft:0;
+  const wrapRect=wrap?wrap.getBoundingClientRect():null;
+  const rowRect=row?row.getBoundingClientRect():null;
+  const rowViewportOffset=(wrapRect&&rowRect)?rowRect.top-wrapRect.top:null;
+  renderTable();
+  requestAnimationFrame(()=>{
+    window.scrollTo({top:pageY,left:0,behavior:'auto'});
+    const newWrap=document.querySelector('.table-wrap');
+    if(!newWrap)return;
+    newWrap.scrollLeft=oldScrollLeft;
+    newWrap.scrollTop=oldScrollTop;
+    requestAnimationFrame(()=>{
+      const newRow=document.querySelector(`tr.case-row[data-case="${caseNo}"]`);
+      const newWrapRect=newWrap.getBoundingClientRect();
+      if(newRow&&rowViewportOffset!==null){
+        const newRowRect=newRow.getBoundingClientRect();
+        newWrap.scrollTop += (newRowRect.top-newWrapRect.top)-rowViewportOffset;
+      }
+    });
+  });
+}
+function addNote(caseNo,textOverride=null){const input=document.querySelector(`[data-note-input="${caseNo}"]`),text=(textOverride??input?.value??'').trim();if(!text)return;const c=state.cases[caseNo];c.notes||=[];c.notes.push({id:uid(),at:nowISO(),text});saveState();rerenderTableAnchored(caseNo);if(ui.focus===caseNo)renderFocus();}
+function deleteNote(caseNo,id){const c=state.cases[caseNo];c.notes=(c.notes||[]).filter(n=>n.id!==id);saveState();rerenderTableAnchored(caseNo);if(ui.focus===caseNo)renderFocus();}
 function deleteCase(caseNo){if(!state.cases[caseNo])return;if(ui.focus===caseNo)closeFocus();ui.expanded.delete(caseNo);delete state.cases[caseNo];if(state.source.currentCaseNumbers)state.source.currentCaseNumbers=state.source.currentCaseNumbers.filter(n=>n!==caseNo);saveState();render();toast(`Caso ${caseNo}`,'Eliminado del panel.');}
 
 function wireAuxControls(){
@@ -657,6 +734,10 @@ $('focusOverlay').onclick=closeFocus;document.addEventListener('keydown',e=>{if(
 render();reminderTimer=setInterval(()=>{renderStats();renderTable();checkReminders();},30000);checkReminders();
 })();
 
+</script>
+
+<script>
+(()=>{const m=document.querySelector('.tools-menu');if(!m)return;document.addEventListener('click',e=>{if(m.open&&!m.contains(e.target))m.removeAttribute('open')});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&m.open)m.removeAttribute('open')});})();
 </script>
 </body>
 </html>
