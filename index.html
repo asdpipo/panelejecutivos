@@ -48,7 +48,7 @@
   table{width:100%;border-collapse:separate;border-spacing:0;min-width:1240px}
   thead th{position:sticky;top:0;z-index:15;background:#f8fafc;color:#586579;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.055em;font-weight:800;padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
   tbody td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:middle;font-size:12.5px;background:#fff}
-  tbody tr.case-row:hover td:not(.due-cell){background:#f8fbff}
+  tbody tr.case-row{cursor:pointer}tbody tr.case-row:hover td:not(.due-cell){background:#f8fbff}
   tbody tr.case-row.reviewed-today td:not(.due-cell){background:#f4f8ff}
   tbody tr.case-row.reviewed-today:hover td:not(.due-cell){background:#eef5ff}
   tbody tr.case-row.reviewed-today td:nth-child(2){background:#e3edff;box-shadow:inset 4px 0 0 #2563eb}
@@ -68,7 +68,7 @@
   .review{min-width:130px}.review strong{display:inline-block;font-size:11.5px;background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:4px 7px}.review span{display:block;color:var(--muted);font-size:10.5px;margin-top:3px}.unreviewed{color:#98a2b3;font-weight:650}
   .follow{min-width:145px}.follow-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;color:#44546a}.follow-chip.due-now{border-color:#f3b4b4;background:#fff1f1;color:#a12626;animation:pulse 1.6s infinite}.follow-empty{color:#98a2b3;font-size:11px}
   @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}50%{box-shadow:0 0 0 4px rgba(220,38,38,.08)}}
-  .obs-cell{min-width:210px;max-width:320px}.obs-latest{display:flex;gap:6px;align-items:flex-start}.obs-latest button{border:0;background:transparent;color:#637188;padding:0 2px;font-size:15px}.obs-text{color:#475467;line-height:1.3}.obs-empty{color:#a0a8b5}
+  .obs-cell{min-width:128px;max-width:150px}.history-count-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:104px;height:30px;border:1px solid var(--line);border-radius:9px;background:#fff;color:#43516a;font-size:11px;font-weight:800;padding:0 10px;cursor:pointer;white-space:nowrap}.history-count-btn:hover{background:#f4f7fb;border-color:#c9d4e2;color:#1f3b63}.history-count-btn.active{background:#eef4ff;border-color:#bfd0f4;color:#244d8f;box-shadow:inset 0 0 0 1px rgba(37,99,235,.05)}
   .row-actions{display:flex;justify-content:flex-end;gap:5px}.row-actions button{border:1px solid var(--line);background:#fff;border-radius:8px;width:30px;height:30px;display:grid;place-items:center;color:#536176}.row-actions button:hover{background:#f5f8fc;color:#233b5d}.row-actions .delete{color:#b42318;background:#fff7f6;border-color:#ffd4cf;font-size:17px;font-weight:800}.row-actions .delete:hover{background:#fee4e2;color:#8f1710;border-color:#fda29b}
   .detail-row td{padding:0;background:#fafbfd}.detail{display:grid;grid-template-columns:minmax(380px,1.4fr) minmax(300px,1fr);gap:14px;padding:14px 18px 16px;border-bottom:1px solid var(--line)}
   .detail-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}.detail-title{font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.055em;color:#5e6b7e;margin-bottom:9px}
@@ -121,6 +121,7 @@
         <div class="actions">
           <button class="btn primary" id="btnImport">＋ <span class="label">Actualizar desde PDF</span></button>
           <button class="btn" id="btnNext">→ <span class="label">Siguiente caso</span></button>
+          <button class="btn" id="btnSave" title="Guardar ahora en este navegador">💾 <span class="label">Guardar</span></button>
           <button class="btn" id="btnExport">⇩ <span class="label">Exportar CSV</span></button>
           <button class="btn" id="btnExportAux" title="Exportar gestión Auxilia a Excel">A↓ <span class="label">Auxilia Excel</span></button>
           <details class="tools-menu">
@@ -236,6 +237,7 @@
 if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 const STORAGE_KEY = 'panel_operativo_casos_v1';
+const SAVE_META_KEY = STORAGE_KEY + '_last_saved';
 const SF_STATUSES = ['Pendiente','En Tratamiento','Actividad Cliente','Resuelto'];
 const DEFAULT_PRIORITY = ['p1','p2','p3'];
 const GROUP_LABELS = {p1:'P1 · Pendientes Salesforce',p2:'P2 · Abiertos por vencer',p3:'P3 · Vencidos',p4:'Resueltos · fuera del próximo CSV'};
@@ -249,6 +251,7 @@ const NATIONAL_HOLIDAYS = new Set([
 let state = loadState();
 let ui = {filter:'all',search:'',expanded:new Set(),detailTab:{},focus:null,followCase:null};
 let reminderTimer = null;
+let lastSavedAt = localStorage.getItem(SAVE_META_KEY) || null;
 
 function freshState(){
   return {cases:{},settings:{sound:true,browserNotification:false,priorityOrder:[...DEFAULT_PRIORITY],customHolidays:[]},source:{name:'',importedAt:null,snapshotAt:null,currentCaseNumbers:null},directory:{customRows:null,meta:{...EMBEDDED_DIRECTORY_META}},version:2};
@@ -285,7 +288,19 @@ function loadState(){
     s.version=2; return s;
   }catch(e){return freshState();}
 }
-function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
+function saveState(){
+  const ts=nowISO();
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+  localStorage.setItem(SAVE_META_KEY,ts);
+  lastSavedAt=ts;
+  updateSaveIndicator();
+}
+function updateSaveIndicator(){
+  const el=document.getElementById('dayLabel');
+  if(!el)return;
+  const day=new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'});
+  el.textContent=lastSavedAt?`${day} · guardado ${fmtTime(lastSavedAt)}`:`${day} · guardado local al modificar`;
+}
 function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function uid(){return crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);}
 function nowISO(){return new Date().toISOString();}
@@ -375,7 +390,7 @@ function filteredCases(){
 
 function render(){renderHeader();renderStats();renderTable();syncSettingsUI();}
 function renderHeader(){
-  document.getElementById('dayLabel').textContent=`${new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'})} · guardado automático local`;
+  updateSaveIndicator();
   const s=state.source,active=allCases().filter(c=>!isResolved(c)).length,resolved=allCases().filter(isResolved).length,old=directoryIsOld();
   document.getElementById('sourceInfo').innerHTML=s.name?`${esc(s.name)} · actualizado ${fmtDateTime(s.importedAt)} · ${active} activos${resolved?` · ${resolved} resueltos`:''} <span class="dir-source ${old?'old':''}">● ${esc(directoryLabel())}${old?' · actualizar recomendada':''}</span>`:`Sin fuente cargada · <span class="dir-source ${old?'old':''}">● ${esc(directoryLabel())}${old?' · actualizar recomendada':''}</span>`;
   document.getElementById('btnSound').textContent=state.settings.sound?'🔊':'🔇';
@@ -391,7 +406,7 @@ function renderTable(){
   const content=document.getElementById('content'),cs=filteredCases();
   if(!allCases().length){content.innerHTML=`<div class="empty-state"><div class="empty-icon">▤</div><h2>Tu día parte acá</h2><p>Carga el PDF de <b>Mis Casos Abiertos</b>. El panel cruza automáticamente la EDS con ${esc(directoryLabel())}, conserva tus observaciones y permite gestionar Auxilia por PPU.</p><div class="empty-actions"><button class="btn blue" onclick="document.getElementById('btnImport').click()">Cargar PDF Salesforce</button><button class="btn" onclick="document.getElementById('btnHistory').click()">Importar historial CSV</button></div></div>`;return;}
   if(!cs.length){content.innerHTML=`<div class="empty-state"><div class="empty-icon">⌕</div><h2>Sin resultados</h2><p>No hay casos que coincidan con el filtro o búsqueda actual.</p></div>`;return;}
-  let html=`<div class="table-wrap"><table><thead><tr><th style="width:170px">SLA</th><th style="width:132px">Nº caso</th><th style="width:50px;text-align:center">A</th><th style="width:142px">Estado Salesforce</th><th>Categoría 2</th><th style="width:145px">Revisión</th><th style="width:58px;text-align:center">Alarma</th><th style="width:270px">Observación</th><th style="width:78px"></th></tr></thead><tbody>`;
+  let html=`<div class="table-wrap"><table><thead><tr><th style="width:170px">SLA</th><th style="width:132px">Nº caso</th><th style="width:50px;text-align:center">A</th><th style="width:142px">Estado Salesforce</th><th>Categoría 2</th><th style="width:145px">Revisión</th><th style="width:58px;text-align:center">Alarma</th><th style="width:138px">Observación</th><th style="width:78px"></th></tr></thead><tbody>`;
   for(const group of [...state.settings.priorityOrder,'p4']){
     const items=cs.filter(c=>priorityOf(c)===group).sort(sortCases);if(!items.length)continue;
     html+=`<tr class="group-row"><td colspan="9">${GROUP_LABELS[group]} <span class="group-count">${items.length}</span></td></tr>`;
@@ -400,10 +415,10 @@ function renderTable(){
   html+='</tbody></table></div>';content.innerHTML=html;wireRows();
 }
 function renderRow(c){
-  const risk=riskInfo(c),ser=sernacInfo(c),revToday=todayReview(c),lastRev=latestReview(c),note=latestNote(c),expanded=ui.expanded.has(c.caseNo),pending=priorityOf(c)==='p1',a=auxStatus(c),eds=normalizeSap(c.eds);
+  const risk=riskInfo(c),ser=sernacInfo(c),revToday=todayReview(c),lastRev=latestReview(c),noteCount=(c.notes||[]).length,expanded=ui.expanded.has(c.caseNo),pending=priorityOf(c)==='p1',a=auxStatus(c),eds=normalizeSap(c.eds);
   const reviewHTML=revToday.length?`<strong>Revisado ${fmtTime(revToday[0].at)}</strong><span>${revToday.length>1?`${revToday.length} revisiones hoy · `:''}última ${fmtTime(lastRev.at)}</span>`:`<span class="unreviewed">Sin revisar hoy</span>${lastRev?`<span>Última: ${fmtDateTime(lastRev.at)}</span>`:''}`;
   const alarm=c.followUp?`<button class="alarm-btn active ${dueFollow(c)?'due-now':''}" data-follow="${c.caseNo}" title="${esc(c.followUp.text||'Alarma')} · ${fmtDateTime(c.followUp.at)}">⏰</button>`:`<button class="alarm-btn" data-follow="${c.caseNo}" title="Crear alarma">◷</button>`;
-  return `<tr class="case-row ${revToday.length?'reviewed-today':''} ${isResolved(c)?'resolved-row':''}" data-case="${c.caseNo}" style="--risk:${risk.color};--pct:${risk.pct}%">
+  return `<tr class="case-row ${revToday.length?'reviewed-today':''} ${isResolved(c)?'resolved-row':''} ${expanded?'expanded-row':''}" data-case="${c.caseNo}" title="Clic en la fila para ${expanded?'contraer':'abrir historial'}" style="--risk:${risk.color};--pct:${risk.pct}%">
     <td class="due-cell"><div class="due ${risk.expired?'expired':''} ${risk.resolved?'resolved':''}"><div class="due-main"><span class="risk-dot"></span><span>${esc(risk.label)}${risk.expired&&risk.sub?` · ${esc(risk.sub)}`:''}</span></div><div class="due-sub">${risk.resolved?esc(risk.sub):(risk.expired?`venció ${fmtDateTime(c.dueAt)}`:esc(risk.sub))}</div>${!risk.expired&&!risk.resolved?`<div class="sla-track"><div class="sla-fill"></div></div>`:''}${ser?`<div class="sernac-chip" style="--ser:${ser.color};--serbg:${ser.bg}" title="Conteo independiente desde el día hábil siguiente al ingreso">SERNAC · ${ser.days} ${ser.days===1?'día hábil':'días hábiles'}</div>`:''}</div></td>
     <td><div class="case-no"><button class="copy-btn ${revToday.length?'done':''}" data-copy="${c.caseNo}" title="Copiar caso y marcar revisado">${revToday.length?'✓':'⧉'}</button><span>${esc(c.caseNo)}</span></div></td>
     <td style="text-align:center"><button class="a-mark ${a.key}" data-open-aux="${c.caseNo}" title="${esc(a.title)}">A</button></td>
@@ -411,12 +426,12 @@ function renderRow(c){
     <td class="cat"><div class="truncate" title="${esc(c.category2)}">${esc(categoryShort(c.category2)||'—')}</div>${eds!=='0'?`<button class="eds-chip ${expanded&&ui.detailTab[c.caseNo]==='station'?'active':''}" data-open-station="${c.caseNo}" title="${expanded&&ui.detailTab[c.caseNo]==='station'?'Contraer información de estación':'Ver información de estación'}">EDS ${esc(eds)} <span class="eds-chevron">${expanded&&ui.detailTab[c.caseNo]==='station'?'▴':'▾'}</span></button>`:''}</td>
     <td class="review">${reviewHTML}</td>
     <td style="text-align:center">${alarm}</td>
-    <td class="obs-cell"><div class="obs-latest"><button data-open-history="${c.caseNo}" title="${expanded?'Abrir historial':'Ver historial'}">${expanded&&ui.detailTab[c.caseNo]==='history'?'▾':'▸'}</button><div class="obs-text ${note?'':'obs-empty'}">${note?esc(note.text):'Sin observaciones'}</div></div></td>
+    <td class="obs-cell"><button class="history-count-btn ${expanded&&ui.detailTab[c.caseNo]==='history'?'active':''}" data-open-history="${c.caseNo}" title="${expanded&&ui.detailTab[c.caseNo]==='history'?'Contraer historial':'Abrir historial'}">Historial (${noteCount}) ${expanded&&ui.detailTab[c.caseNo]==='history'?'▴':'▾'}</button></td>
     <td><div class="row-actions"><button data-focus="${c.caseNo}" title="Modo foco">◎</button><button class="delete" data-delete="${c.caseNo}" title="Eliminar del panel">×</button></div></td>
   </tr>${expanded?renderDetail(c):''}`;
 }
 function renderDetail(c){
-  const tab=ui.detailTab[c.caseNo]||'station';
+  const tab=ui.detailTab[c.caseNo]||'history';
   return `<tr class="detail-row"><td colspan="9"><div class="detail-shell"><div class="detail-tabs"><button data-detail-tab="station" data-case="${c.caseNo}" class="${tab==='station'?'active':''}">Estación</button><button data-detail-tab="aux" data-case="${c.caseNo}" class="${tab==='aux'?'active':''}">Gestión Auxilia</button><button data-detail-tab="history" data-case="${c.caseNo}" class="${tab==='history'?'active':''}">Historial</button></div><div class="detail-panel">${tab==='station'?renderStationPanel(c):tab==='aux'?renderAuxPanel(c):renderHistoryPanel(c)}</div></div></td></tr>`;
 }
 function copyMini(value,label='Dato'){return value?`<button class="copy-mini" data-copy-value="${esc(value)}" data-copy-label="${esc(label)}" title="Copiar">⧉</button>`:'';}
@@ -452,6 +467,19 @@ function renderAuxPanel(c){
   </div>`;
 }
 function wireRows(){
+  document.querySelectorAll('tr.case-row[data-case]').forEach(row=>row.onclick=e=>{
+    // Buttons, selects, inputs and other explicit controls keep their own action.
+    if(e.target.closest('button,select,input,textarea,a,label,summary,details'))return;
+    const caseNo=row.dataset.case;
+    if(!caseNo)return;
+    // The row itself behaves as a simple accordion: open on Historial, second click closes.
+    if(ui.expanded.has(caseNo)){
+      const activeTab=ui.detailTab[caseNo]||'history';
+      openDetail(caseNo,activeTab);
+    }else{
+      openDetail(caseNo,'history');
+    }
+  });
   document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>copyAndReview(b.dataset.copy));
   document.querySelectorAll('[data-copy-value]').forEach(b=>b.onclick=()=>copyValue(b.dataset.copyValue,b.dataset.copyLabel));
   document.querySelectorAll('[data-sf-status]').forEach(s=>s.onchange=()=>{const c=state.cases[s.dataset.sfStatus];if(!c)return;c.sfStatus=normalizeSfStatus(s.value);saveState();render();if(ui.focus===c.caseNo)renderFocus();});
@@ -705,7 +733,7 @@ function resetDirectory(){state.directory={customRows:null,meta:{...EMBEDDED_DIR
 
 function toast(title,msg,type=''){const el=document.createElement('div');el.className=`toast ${type}`;el.innerHTML=`<strong>${esc(title)}</strong>${esc(msg)}`;document.getElementById('toasts').appendChild(el);setTimeout(()=>el.remove(),4300);}
 function beep(){if(!state.settings.sound)return;try{const ctx=new (window.AudioContext||window.webkitAudioContext)(),o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=740;g.gain.setValueAtTime(.0001,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.12,ctx.currentTime+.02);g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+.45);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+.5);}catch(e){}}
-function checkReminders(){let changed=false;for(const c of allCases())if(c.followUp&&dueFollow(c)&&!c.followUp.notified){c.followUp.notified=true;changed=true;beep();toast(`Alarma · ${c.caseNo}`,c.followUp.text||'Revisar caso','warn');if(state.settings.browserNotification&&'Notification'in window&&Notification.permission==='granted')new Notification(`Caso ${c.caseNo}`,{body:c.followUp.text||'Alarma pendiente'});}if(changed){saveState();render();}}
+function checkReminders(){let changed=false;for(const c of allCases())if(c.followUp&&dueFollow(c)&&!c.followUp.notified){c.followUp.notified=true;changed=true;beep();toast(`Alarma · ${c.caseNo}`,c.followUp.text||'Revisar caso','warn');if(state.settings.browserNotification&&'Notification'in window&&Notification.permission==='granted')new Notification(`Caso ${c.caseNo}`,{body:c.followUp.text||'Alarma pendiente'});}if(changed){saveState();renderStats();}}
 
 function syncSettingsUI(){document.getElementById('settingSound').checked=state.settings.sound;document.getElementById('settingNotification').checked=state.settings.browserNotification;}
 function renderPrioritySettings(){document.getElementById('priorityList').innerHTML=state.settings.priorityOrder.map((g,i)=>`<div class="status-item"><div style="border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:12px;font-weight:700">${GROUP_LABELS[g]}</div><button class="mini" data-priority-up="${i}" ${i===0?'disabled':''}>↑</button><button class="mini" data-priority-down="${i}" ${i===2?'disabled':''}>↓</button><span></span></div>`).join('');document.querySelectorAll('[data-priority-up]').forEach(b=>b.onclick=()=>movePriority(+b.dataset.priorityUp,-1));document.querySelectorAll('[data-priority-down]').forEach(b=>b.onclick=()=>movePriority(+b.dataset.priorityDown,1));}
@@ -718,7 +746,7 @@ const $=id=>document.getElementById(id);
 $('btnImport').onclick=()=>{$('pdfError').classList.remove('show');$('pasteError').classList.remove('show');$('importDialog').showModal();};
 $('btnHistory').onclick=()=>{$('csvError').classList.remove('show');$('historyDialog').showModal();};
 $('btnSettings').onclick=()=>{renderPrioritySettings();renderDirectorySettings();renderHolidaySettings();$('settingsDialog').showModal();};
-$('btnExport').onclick=()=>{try{exportCsv();}catch(ex){console.error(ex);toast('No pude exportar CSV',ex.message||'Error de exportación','error');}};$('btnExportAux').onclick=async()=>{try{await exportAuxiliaXlsx();}catch(ex){console.error(ex);toast('No pude exportar Auxilia',ex.message||'Error de exportación','error');}};$('btnNext').onclick=nextCase;$('btnSound').onclick=()=>{state.settings.sound=!state.settings.sound;saveState();renderHeader();syncSettingsUI();toast('Sonido',state.settings.sound?'Activado':'Desactivado');};
+$('btnExport').onclick=()=>{try{exportCsv();}catch(ex){console.error(ex);toast('No pude exportar CSV',ex.message||'Error de exportación','error');}};$('btnExportAux').onclick=async()=>{try{await exportAuxiliaXlsx();}catch(ex){console.error(ex);toast('No pude exportar Auxilia',ex.message||'Error de exportación','error');}};$('btnNext').onclick=nextCase;$('btnSave').onclick=()=>{saveState();toast('Guardado','Datos guardados localmente en este navegador.');};$('btnSound').onclick=()=>{state.settings.sound=!state.settings.sound;saveState();renderHeader();syncSettingsUI();toast('Sonido',state.settings.sound?'Activado':'Desactivado');};
 $('btnClear').onclick=()=>{if(confirm('¿Vaciar el panel completo?\n\nEsto elimina los casos y la gestión guardada localmente. La nómina EDS y la configuración se conservarán.')){state.cases={};state.source={name:'',importedAt:null,snapshotAt:null,currentCaseNumbers:null};saveState();ui.expanded.clear();render();}};
 $('search').oninput=e=>{ui.search=e.target.value;renderTable();};document.querySelectorAll('.filter').forEach(b=>b.onclick=()=>{document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');ui.filter=b.dataset.filter;renderTable();});
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).close());document.querySelectorAll('dialog .tab').forEach(b=>b.onclick=()=>{const d=b.closest('dialog'),tab=b.dataset.tab;d.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b));d.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('active',p.dataset.pane===tab));});
@@ -731,7 +759,7 @@ $('settingSound').onchange=e=>{state.settings.sound=e.target.checked;saveState()
 $('btnChooseDirectory').onclick=()=>$('directoryInput').click();$('directoryInput').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;await importDirectoryFile(f);}catch(ex){toast('No pude cargar la nómina',ex.message,'error');}finally{e.target.value='';}};$('btnResetDirectory').onclick=resetDirectory;$('btnAddHoliday').onclick=addHoliday;
 $('focusOverlay').onclick=closeFocus;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('focusPanel').classList.contains('open'))closeFocus();});
 
-render();reminderTimer=setInterval(()=>{renderStats();renderTable();checkReminders();},30000);checkReminders();
+render();reminderTimer=setInterval(()=>{checkReminders();},30000);checkReminders();
 })();
 
 </script>
